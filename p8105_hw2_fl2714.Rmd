@@ -1,0 +1,229 @@
+---
+title: "p8105_hw2_fl2714"
+author: "Fangchi"
+date: "2024-09-29"
+output: github_document
+---
+
+```{r setup, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(readxl)
+library(haven)
+```
+
+## Problem 1:NYC Transit data
+
+### Read and clean the data
+
+```{r}
+subway_data <- read.csv("data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv")
+
+```
+
+
+```{r}
+colnames(subway_data)
+```
+```{r}
+# Clean and transform the data
+subway_df <- subway_data |>
+  janitor::clean_names() |>  # Clean the column names to be consistent
+  mutate( 
+    # Convert entry to logical
+    entry_logic = ifelse(entry == "YES", TRUE, ifelse(entry == "NO", FALSE, NA)),
+    # Count number of non-missing routes (treating both NA and "" as missing)
+    route_count = rowSums(!is.na(across(starts_with("route"))) & across(starts_with("route"), ~ . != ""))
+  ) |>
+  # Select only the relevant columns
+  select(line, station_name, station_latitude, station_longitude, 
+         route_count, entry_logic, vending, entrance_type, ada)
+
+```
+
+
+```{r}
+sapply(subway_df, class)
+```
+```{r}
+# Count missing values for each column
+colSums(is.na(subway_df))
+
+```
+
+```{r}
+summary(subway_df)
+```
+
+```{r}
+# enumerate categorical variables
+table(subway_df$entry_logic)
+table(subway_df$vending)
+table(subway_df$entrance_type)
+table(subway_df$ada)
+
+```
+### Data description
+
+The data we have preprocessed has 1868 rows and 9 rows.
+
+- **line** (`Character`): The subway line. 
+- **station_name** (`Character`): The name of the subway station. 
+- **station_latitude** (`Numeric`): range from 40.58 to 40.90, with a median at 40.73.
+- **station_longitude** (`Numeric`): range from -74.03 to -73.76, with a median at -73.96.
+- **route_count** (`Numeric`): The number of routes available at each station is between 1 to 11, with an average of 2.286.
+- **entry_logic** (`Logical`): Whether is an entrance, 1753 are `TRUE` and 115 are `FALSE`.
+- **vending** (`Character`): Vending availability at the station, 1685 are `YES` and 183 are `NO`.
+- **entrance_type** (`Character`): Type of entrance. This variable describes the type of entrance each station has.
+- **ada** (`Logical`): Whether the station is ADA accessible. 468 are `TRUE` and 1400 are `FALSE`.
+
+### Data cleaning steps
+- 1.**Data retrieval**: read data from csv
+- 2.**Clean Column Names**: Standardize column names
+- 3.**Calculate Entry Logic**: Convert the entry variable from character to a logical variable
+- 4.**Determine Route Count**: Compute routes served at each station by counting non-missing values of columns indicate routes
+- 5.**Select Columns**: Select columns we need
+- 6.**Data Validation**: Check missing values, data type, categorical variable values, etc.
+
+The data is tidy for Exploratory Data Analysis since there's no missing values, no anomalies in the numerical or categorical variables, and clear meanings for all columns
+
+### Exploratory Data Analysis
+
+```{r}
+distinct_stations <- subway_df %>%
+  distinct(station_name, line) %>%
+  nrow()
+
+distinct_stations
+
+```
+There are 465 distinct stations.
+
+```{r}
+# Counting ADA compliant stations
+ada_compliant_stations <- subway_df %>%
+  filter(ada == TRUE) %>%
+  distinct(station_name, line) %>%
+  nrow()
+
+# Output the number of ADA compliant stations
+ada_compliant_stations
+
+```
+84 stations are ADA compliant
+
+```{r}
+# Proportion of non-vending entrances that allow entry
+non_vending_proportion <- subway_df %>%
+  filter(vending == "NO") %>%
+  summarize(proportion = mean(entry_logic, na.rm = TRUE))
+
+# Output the proportion
+non_vending_proportion$proportion
+
+```
+37.7% of station entrances / exits without vending allow entrance
+
+```{r}
+head(subway_data)
+```
+
+```{r}
+# Filter rows where any Route1 to Route11 column contains "A"
+a_train_data <- subway_data %>%
+  janitor::clean_names() %>%
+  filter(if_any(starts_with("Route"), ~ . == "A"))
+
+distinct_a_train_stations <- a_train_data %>%
+  distinct(station_name, line) %>%
+  nrow()
+
+ada_compliant_a_train_stations <- a_train_data %>%
+  filter(ada == TRUE) %>%
+  distinct(station_name, line) %>%
+  nrow()
+
+
+distinct_a_train_stations
+ada_compliant_a_train_stations
+
+```
+60 distinct stations serve the A train, 17 are ADA compliant
+
+## Problem 2:  Mr. Trash Wheel dataset
+
+### Read and clean the data
+```{r}
+
+#Read and clean Mr. Trash Wheel data
+mr_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
+                          sheet = "Mr. Trash Wheel",
+                          range = cell_cols("A:N"),
+                          col_names = TRUE,
+                          trim_ws = TRUE,
+                          skip = 1) %>%
+  janitor::clean_names() %>% 
+  filter(!is.na(dumpster)) %>%
+  mutate(sports_balls = as.integer(round(sports_balls, 0)),
+         csource = "Mr. Trash Wheel")
+
+```
+
+```{r}
+# Check if sports_balls column exists and mutate only if it does
+prof_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
+                          sheet = "Professor Trash Wheel",
+                          range = cell_cols("A:M"),
+                          col_names = TRUE,
+                          trim_ws = TRUE,
+                          skip = 1) %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dumpster)) %>%
+  # Conditionally mutate sports_balls if the column exists
+  mutate(sports_balls = if ("sports_balls" %in% colnames(.)) as.integer(round(sports_balls, 0)) else NA_integer_,
+         csource = "Professor Trash Wheel")
+
+```
+
+
+```{r}
+# Check if sports_balls column exists and mutate only if it does
+gwynnda_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
+                          sheet = "Gwynnda Trash Wheel",
+                          range = cell_cols("A:L"),
+                          col_names = TRUE,
+                          trim_ws = TRUE,
+                          skip = 1) %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dumpster)) %>%
+  # Conditionally mutate sports_balls if the column exists
+  mutate(sports_balls = if ("sports_balls" %in% colnames(.)) as.integer(round(sports_balls, 0)) else NA_integer_,
+         csource = "Gwynnda Trash Wheel")
+
+```
+```{r}
+
+#year as character
+mr_trash_wheel_df <- mr_trash_wheel_df %>%
+  mutate(year = as.character(year))
+
+prof_trash_wheel_df <- prof_trash_wheel_df %>%
+  mutate(year = as.character(year))
+
+gwynnda_trash_wheel_df <- gwynnda_trash_wheel_df %>%
+  mutate(year = as.character(year))
+
+# combine
+combined_trash_wheel_df <- bind_rows(mr_trash_wheel_df, prof_trash_wheel_df, gwynnda_trash_wheel_df)
+
+
+```
+
+## Exploratory Data Analysis
+```{r}
+summary(combined_trash_wheel_df)
+```
+
+The combined dataset contains data from three trash wheels: Mr. Trash Wheel, Professor Trash Wheel, and Gwynnda Trash Wheel, with a total of `r nrow(combined_trash_wheel_df)` observations. Each observation represents a time when one of the trash wheels was active, collecting various types of trash. Key variables include `weight_tons`, representing the total weight of trash collected (in tons), `plastic_bottles` indicating the number of plastic bottles collected, and `cigarette_butts`, which tracks the number of cigarette butts collected. For example, Professor Trash Wheel has collected a total of `r sum(combined_trash_wheel_df$weight_tons[combined_trash_wheel_df$csource == "Professor Trash Wheel"], na.rm = TRUE)` tons of trash. In June 2022, Gwynnda collected `r sum(combined_trash_wheel_df$cigarette_butts[combined_trash_wheel_df$csource == "Gwynnda Trash Wheel" & format(combined_trash_wheel_df$date, "%Y-%m") == "2022-06"], na.rm = TRUE)` cigarette butts. This dataset provides valuable insights into the environmental impact of these trash wheels over time.
+
+
+

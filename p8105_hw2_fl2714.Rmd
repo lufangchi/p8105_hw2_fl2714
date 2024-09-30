@@ -2,13 +2,17 @@
 title: "p8105_hw2_fl2714"
 author: "Fangchi"
 date: "2024-09-29"
-output: github_document
+output: 
+  github_document
 ---
 
 ```{r setup, echo = FALSE, message = FALSE}
 library(tidyverse)
 library(readxl)
 library(haven)
+library(readr)
+library(dplyr)
+library(janitor)
 ```
 
 ## Problem 1:NYC Transit data
@@ -218,12 +222,177 @@ combined_trash_wheel_df <- bind_rows(mr_trash_wheel_df, prof_trash_wheel_df, gwy
 
 ```
 
-## Exploratory Data Analysis
+### Exploratory Data Analysis
 ```{r}
 summary(combined_trash_wheel_df)
 ```
 
 The combined dataset contains data from three trash wheels: Mr. Trash Wheel, Professor Trash Wheel, and Gwynnda Trash Wheel, with a total of `r nrow(combined_trash_wheel_df)` observations. Each observation represents a time when one of the trash wheels was active, collecting various types of trash. Key variables include `weight_tons`, representing the total weight of trash collected (in tons), `plastic_bottles` indicating the number of plastic bottles collected, and `cigarette_butts`, which tracks the number of cigarette butts collected. For example, Professor Trash Wheel has collected a total of `r sum(combined_trash_wheel_df$weight_tons[combined_trash_wheel_df$csource == "Professor Trash Wheel"], na.rm = TRUE)` tons of trash. In June 2022, Gwynnda collected `r sum(combined_trash_wheel_df$cigarette_butts[combined_trash_wheel_df$csource == "Gwynnda Trash Wheel" & format(combined_trash_wheel_df$date, "%Y-%m") == "2022-06"], na.rm = TRUE)` cigarette butts. This dataset provides valuable insights into the environmental impact of these trash wheels over time.
 
+## Problem 3:  Great British Bake Off
+
+### Read and clean the data
+```{r}
+# Read the data files
+bakers <- read_csv("data/gbb_datasets/bakers.csv", locale = locale(encoding = "UTF-8"),show_col_types = FALSE) %>%
+  janitor::clean_names()
+
+bakes <- read_csv("data/gbb_datasets/bakes.csv", locale = locale(encoding = "UTF-8"),show_col_types = FALSE) %>%
+  janitor::clean_names()
+
+results <- read_csv("data/gbb_datasets/results.csv", 
+                    locale = locale(encoding = "UTF-8"),
+                    skip = 2,                
+                    show_col_types = FALSE) %>%
+           janitor::clean_names()
+
+viewers <- read_csv("data/gbb_datasets/viewers.csv", locale = locale(encoding = "UTF-8"),show_col_types = FALSE) %>%
+  janitor::clean_names()
+```
 
 
+```{r}
+
+bakers <- bakers %>%
+  mutate(baker_name = tolower(baker_name),  
+         baker = word(baker_name, 1))%>%
+  mutate(baker = gsub('^"|"$', '', baker))       
+
+bakes <- bakes %>%
+  mutate(baker = tolower(baker))%>%
+  mutate(baker = gsub('^"|"$', '', baker))
+
+results <- results %>%
+  mutate(baker = tolower(baker))%>%
+  mutate(baker = gsub('^"|"$', '', baker))
+
+
+dim(bakers)
+dim(bakes)
+dim(results)
+names(bakers)
+names(bakes)
+names(results)
+
+```
+
+###  Check for completeness 
+```{r,warning=FALSE}
+# Check if there are any bakers in the 'bakes' dataset that do not appear in the 'bakers' dataset.
+anti_join(bakes, bakers, by = "baker")
+
+# Check if there are any bakers in the 'bakers' dataset that do not appear in the 'bakes' dataset.
+anti_join(bakers, bakes, by = "baker")
+
+# Check if there are any bakers in the 'results' dataset that do not appear in the 'bakers' dataset.
+anti_join(results, bakers, by = "baker")
+
+# Check if there are any bakers in the 'bakers' dataset that do not appear in the 'results' dataset.
+anti_join(bakers, results, by = "baker")
+
+# Check if there are any bakers in the 'bakes' dataset that do not appear in the 'results' dataset.
+anti_join(bakes, results, by = c("baker","series"))
+
+# Check if there are any bakers in the 'results' dataset that do not appear in the 'bakes' dataset.
+anti_join(results, bakes, by = c("baker","series"))
+
+```
+
+
+### Join datasets 
+```{r}
+# join bakes and bakers
+bakes_bakers <- full_join(bakers, bakes,by = c("series","baker"))
+# join bake_bakers with result
+final_dataset <- full_join(bakes_bakers, results, by = c("baker", "series", "episode"))
+
+```
+
+
+```{r}
+# rearrange data
+final_dataset <- final_dataset %>%
+  select(series, episode, baker_name, baker, everything()) 
+
+final_dataset <- final_dataset %>%
+  arrange(series, episode, baker_name)
+dim(final_dataset)
+names(final_dataset)
+head(final_dataset)
+# Write final_dataset to a CSV file in the current working directory
+write.csv(final_dataset, "final_bake_data.csv", row.names = FALSE)
+```
+
+Describe your data cleaning process, including any questions you have or choices you made. Briefly discuss the final dataset.
+
+- 1.Import files: The data files (bakers.csv, bakes.csv, results.csv, and viewers.csv) are imported and the columns are cleaned using janitor::clean_names().
+- 2.Standardizing Baker Names: For each dataset (bakers, bakes, and results), the baker names are converted to lowercase.Baker's name is extracted and assigned to the baker column, which align with other files.
+- 3.Checking Completeness and Consistency: the results shows that bakes dataset does not include series 9 and 10.Additionally, there was a discrepancy with Joanne, who might have been referred to as "Jo" in some datasets, leading to mismatches. To avoid prematurely altering data, I chose to preserve the original data for further investigation into these inconsistencies.
+- 4. Final dataset description: The final dataset has 1,169 rows and 11 columns, representing episodes from various seasons of the Great British Bake Off. Each row contains details about a contestant's participation in a specific episode, including personal information (age, occupation, hometown) and their performance in the challenges (Signature Bake, Show Stopper, and Technical).This dataset can be used to analyze contestant performance trends, identify winning patterns, and examine how technical ranks relate to overall outcomes.
+
+### Winner and Star bakers
+```{r}
+# Filter the results dataset for Seasons 5 through 10 and episodes with Star Baker or Winner
+star_bakers_winners <- final_dataset %>%
+  filter(series >= 5 & series <= 10, result %in% c("STAR BAKER", "WINNER")) %>%
+  select(series, episode, baker, baker_age, baker_occupation, hometown, signature_bake,show_stopper, technical,result)%>%
+  arrange(series, episode)
+
+library(knitr)
+kable(star_bakers_winners, 
+      caption = "Star Baker or Winner in Seasons 5 through 10")
+
+```
+
+```{r}
+summary(star_bakers_winners)
+```
+
+```{r}
+table(star_bakers_winners$baker_occupation)
+```
+```{r}
+table(star_bakers_winners$hometown)
+```
+
+
+```{r,warning=FALSE}
+# Load required libraries
+library(ggplot2)
+
+# Plot histogram for age distribution (assuming 'age' column exists)
+ggplot(star_bakers_winners, aes(x = baker_age)) + 
+  geom_histogram(binwidth = 5, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Age Distribution of Star Bakers/Winners", x = "Age", y = "Count") +
+  theme_minimal()
+
+# Plot histogram for age distribution (assuming 'age' column exists)
+ggplot(star_bakers_winners, aes(x = technical)) + 
+  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Technical Distribution of Star Bakers/Winners", x = "technical", y = "Count") +
+  theme_minimal()
+
+```
+Comment on this table – were there any predictable overall winners? Any surprises?
+
+- 1. The table reveals a diverse set of winners and star bakers, with significant variation in their age, occupation, and hometown. 
+ 
+- 2. Most of the winners achieved strong technical scores, with a median technical score of 2, indicating that lower technical scores (which reflect better performance) are common among the winners. This suggests that performing well in the technical challenge often increases the likelihood of winning.
+
+- 3. However, there are also some outliers—contestants who did not consistently excel in the technical challenge but still managed to win. This highlights that while technical performance is not the sole determinant.
+
+### Veiwer data overview
+```{r}
+summary(viewers, 10)
+dim(viewers)
+```
+```{r}
+head(viewers,10)
+```
+
+```{r}
+# calculate average viewer
+mean(viewers$series_1,na.rm=TRUE)
+mean(viewers$series_5,na.rm=TRUE)
+```
+The average viewer for Series 1 episodes is 2.77 million, while the average viewer for Series 5 episodes is 10.04 million

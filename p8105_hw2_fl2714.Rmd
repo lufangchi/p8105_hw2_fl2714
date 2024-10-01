@@ -220,7 +220,6 @@ gwynnda_trash_wheel_df <- gwynnda_trash_wheel_df %>%
 # combine
 combined_trash_wheel_df <- bind_rows(mr_trash_wheel_df, prof_trash_wheel_df, gwynnda_trash_wheel_df)
 
-
 ```
 
 ### Exploratory Data Analysis

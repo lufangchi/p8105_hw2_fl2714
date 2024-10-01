@@ -159,7 +159,7 @@ ada_compliant_a_train_stations
 ```{r}
 
 #Read and clean Mr. Trash Wheel data
-mr_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
+mr_trash_wheel_df <- read_excel("data/202409 Trash Wheel Collection Data.xlsx",
                           sheet = "Mr. Trash Wheel",
                           range = cell_cols("A:N"),
                           col_names = TRUE,
@@ -174,7 +174,7 @@ mr_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
 
 ```{r}
 # Check if sports_balls column exists and mutate only if it does
-prof_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
+prof_trash_wheel_df <- read_excel("data/202409 Trash Wheel Collection Data.xlsx",
                           sheet = "Professor Trash Wheel",
                           range = cell_cols("A:M"),
                           col_names = TRUE,
@@ -191,7 +191,7 @@ prof_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx"
 
 ```{r}
 # Check if sports_balls column exists and mutate only if it does
-gwynnda_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xlsx",
+gwynnda_trash_wheel_df <- read_excel("data/202409 Trash Wheel Collection Data.xlsx",
                           sheet = "Gwynnda Trash Wheel",
                           range = cell_cols("A:L"),
                           col_names = TRUE,
@@ -204,6 +204,7 @@ gwynnda_trash_wheel_df <- read_excel("data/202309 Trash Wheel Collection Data.xl
          csource = "Gwynnda Trash Wheel")
 
 ```
+
 ```{r}
 
 #year as character
